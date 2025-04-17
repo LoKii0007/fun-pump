@@ -5,8 +5,10 @@ import {Token} from "./Token.sol";
 contract Factory {
     uint256 public immutable platformFee;
     uint256 public totalTokens;
+
     address public owner;
     address[] public tokens;
+    mapping(address => TokenSale) public tokenToSale;
 
     struct TokenSale {
         address token;
@@ -16,25 +18,35 @@ contract Factory {
         uint256 raised;
         bool isOpen;
     }
-	mapping(address => TokenSale) public tokenToSale;
+
+    event Created(address indexed token);
 
     constructor(uint256 _platformFee) {
         platformFee = _platformFee;
         owner = msg.sender;
     }
 
+    function getTokenSale(
+        uint256 _index
+    ) public view returns (TokenSale memory) {
+        return tokenToSale[tokens[_index]];
+    }
+
     function create(
         string memory _name,
         string memory _symbol
     ) external payable {
-        // create a new token
+        //? male sure that the fee is correct
+        require(msg.value >= platformFee, "Factory: creator fee not met");
+
+        //? create a new token
         Token token = new Token(msg.sender, _name, _symbol, 1_000_000 ether);
 
-        // save the token for later use
+        //? save the token for later use
         tokens.push(address(token));
         totalTokens++;
 
-        // list the token for sale
+        //? list the token for sale
         TokenSale memory sale = TokenSale(
             address(token),
             _name,
@@ -43,6 +55,14 @@ contract Factory {
             0,
             true
         );
-        // tell people its live
+
+        tokenToSale[address(token)] = sale;
+
+        //? tell people its live
+        emit Created(address(token));
+    }
+
+    function buy(address _token, uint256 _amount) external payable {
+        Token(_token).transfer(msg.sender, _amount);
     }
 }
